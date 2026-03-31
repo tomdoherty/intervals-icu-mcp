@@ -161,10 +161,19 @@ async def get_fitness_summary(
     config: ICUConfig = ctx.get_state("config")
 
     try:
+        import datetime
+
+        today = datetime.date.today().isoformat()
         async with ICUClient(config) as client:
             athlete = await client.get_athlete()
+            wellness = await client.get_wellness_for_date(today)
 
-            if athlete.ctl is None and athlete.atl is None:
+            ctl = wellness.ctl
+            atl = wellness.atl
+            tsb = (ctl - atl) if (ctl is not None and atl is not None) else wellness.tsb
+            ramp_rate = wellness.ramp_rate
+
+            if ctl is None and atl is None:
                 return ResponseBuilder.build_error_response(
                     "No fitness data available. Complete some activities to build your fitness history.",
                     error_type="no_data",
@@ -172,27 +181,27 @@ async def get_fitness_summary(
 
             # Core metrics
             fitness: dict[str, Any] = {}
-            if athlete.ctl is not None:
+            if ctl is not None:
                 fitness["ctl"] = {
-                    "value": round(athlete.ctl, 1),
+                    "value": round(ctl, 1),
                     "description": "Chronic Training Load (Fitness)",
                     "explanation": "Long-term training load (42-day weighted average)",
                 }
-            if athlete.atl is not None:
+            if atl is not None:
                 fitness["atl"] = {
-                    "value": round(athlete.atl, 1),
+                    "value": round(atl, 1),
                     "description": "Acute Training Load (Fatigue)",
                     "explanation": "Short-term training load (7-day weighted average)",
                 }
-            if athlete.tsb is not None:
+            if tsb is not None:
                 fitness["tsb"] = {
-                    "value": round(athlete.tsb, 1),
+                    "value": round(tsb, 1),
                     "description": "Training Stress Balance (Form)",
                     "explanation": "Fitness - Fatigue",
                 }
-            if athlete.ramp_rate is not None:
+            if ramp_rate is not None:
                 fitness["ramp_rate"] = {
-                    "value": round(athlete.ramp_rate, 1),
+                    "value": round(ramp_rate, 1),
                     "description": "Rate of fitness change (CTL increase per week)",
                 }
 
@@ -200,17 +209,17 @@ async def get_fitness_summary(
             analysis: dict[str, Any] = {}
 
             # TSB interpretation
-            if athlete.tsb is not None:
-                if athlete.tsb > 20:
+            if tsb is not None:
+                if tsb > 20:
                     analysis["form_status"] = "very_fresh"
                     analysis["form_interpretation"] = "You're very fresh - good for racing!"
-                elif athlete.tsb > 5:
+                elif tsb > 5:
                     analysis["form_status"] = "recovered"
                     analysis["form_interpretation"] = "You're recovered and ready for hard training"
-                elif athlete.tsb > -10:
+                elif tsb > -10:
                     analysis["form_status"] = "optimal"
                     analysis["form_interpretation"] = "Optimal zone - productive training possible"
-                elif athlete.tsb > -30:
+                elif tsb > -30:
                     analysis["form_status"] = "fatigued"
                     analysis["form_interpretation"] = (
                         "You're accumulating fatigue - recovery may be needed"
@@ -220,19 +229,19 @@ async def get_fitness_summary(
                     analysis["form_interpretation"] = "High fatigue - prioritize recovery"
 
             # Ramp rate interpretation
-            if athlete.ramp_rate is not None:
-                if athlete.ramp_rate > 8:
+            if ramp_rate is not None:
+                if ramp_rate > 8:
                     analysis["ramp_rate_status"] = "high_risk"
                     analysis["ramp_rate_interpretation"] = "Fitness increasing too fast"
                     analysis["ramp_rate_warning"] = "Reduce training load to avoid overtraining"
-                elif athlete.ramp_rate > 5:
+                elif ramp_rate > 5:
                     analysis["ramp_rate_status"] = "caution"
                     analysis["ramp_rate_interpretation"] = "Fitness increasing rapidly"
                     analysis["ramp_rate_warning"] = "Monitor fatigue and recovery closely"
-                elif athlete.ramp_rate > 0:
+                elif ramp_rate > 0:
                     analysis["ramp_rate_status"] = "good"
                     analysis["ramp_rate_interpretation"] = "Sustainable fitness gain"
-                elif athlete.ramp_rate > -5:
+                elif ramp_rate > -5:
                     analysis["ramp_rate_status"] = "declining"
                     analysis["ramp_rate_interpretation"] = (
                         "Fitness slightly declining (taper/recovery)"
@@ -243,15 +252,15 @@ async def get_fitness_summary(
 
             # Training recommendations
             recommendations: list[str] = []
-            if athlete.tsb is not None and athlete.ramp_rate is not None:
-                if athlete.tsb < -30:
+            if tsb is not None and ramp_rate is not None:
+                if tsb < -30:
                     recommendations.append("Take an easy week or rest days")
                     recommendations.append("Focus on recovery and low-intensity activities")
-                elif athlete.tsb < -10 and athlete.ramp_rate > 5:
+                elif tsb < -10 and ramp_rate > 5:
                     recommendations.append("Balance hard training with recovery")
                     recommendations.append("Consider a recovery week soon")
-                elif athlete.tsb > 5:
-                    if athlete.ramp_rate < 0:
+                elif tsb > 5:
+                    if ramp_rate < 0:
                         recommendations.append("Good time to increase training load")
                         recommendations.append("Consider adding volume or intensity")
                     else:

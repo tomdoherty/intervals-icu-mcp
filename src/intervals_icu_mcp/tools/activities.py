@@ -307,6 +307,7 @@ async def update_activity(
     commute: Annotated[bool | None, "Mark as commute"] = None,
     feel: Annotated[int | None, "How you felt (1-5 scale)"] = None,
     perceived_exertion: Annotated[int | None, "RPE rating (1-10 scale)"] = None,
+    training_load: Annotated[int | None, "Manual training load override (TSS equivalent). Useful for strength/indoor sessions without power or HR data."] = None,
     ctx: Context | None = None,
 ) -> str:
     """Update an existing activity's metadata.
@@ -323,6 +324,8 @@ async def update_activity(
         commute: Whether this was a commute
         feel: Subjective feel rating (1=terrible, 5=great)
         perceived_exertion: RPE rating (1-10 scale)
+        training_load: Manual training load (TSS equivalent). Overrides auto-calculated load.
+            Feeds directly into CTL/ATL/TSB. Useful for strength or indoor sessions.
 
     Returns:
         JSON string with updated activity information
@@ -348,6 +351,8 @@ async def update_activity(
             activity_data["feel"] = feel
         if perceived_exertion is not None:
             activity_data["perceived_exertion"] = perceived_exertion
+        if training_load is not None:
+            activity_data["icu_training_load"] = training_load
 
         if not activity_data:
             return ResponseBuilder.build_error_response(
@@ -375,6 +380,8 @@ async def update_activity(
                 result_data["feel"] = activity.feel
             if activity.perceived_exertion is not None:
                 result_data["rpe"] = activity.perceived_exertion
+            if activity.icu_training_load is not None:
+                result_data["training_load"] = activity.icu_training_load
 
             return ResponseBuilder.build_response(
                 data=result_data,

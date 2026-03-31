@@ -62,7 +62,7 @@ async def create_event(
     try:
         # Build event data
         event_data: dict[str, Any] = {
-            "start_date_local": start_date,
+            "start_date_local": start_date + "T00:00:00",
             "name": name,
             "category": category.upper(),
         }
@@ -322,9 +322,10 @@ async def bulk_create_events(
             # Normalize category to uppercase
             event_data["category"] = event_data["category"].upper()
 
-            # Validate date format
+            # Validate date format and append time component for API compatibility
             try:
                 datetime.strptime(event_data["start_date_local"], "%Y-%m-%d")
+                event_data["start_date_local"] = event_data["start_date_local"] + "T00:00:00"
             except ValueError:
                 return ResponseBuilder.build_error_response(
                     f"Event {i}: Invalid date format. Please use YYYY-MM-DD format.",

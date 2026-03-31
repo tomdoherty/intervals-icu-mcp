@@ -6,14 +6,22 @@ from pathlib import Path
 from dotenv import load_dotenv, set_key
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Walk up from this file to find the nearest .env
+_here = Path(__file__).resolve()
+_env_file = next(
+    (p / ".env" for p in [_here.parent, *_here.parents] if (p / ".env").exists()),
+    ".env",
+)
+
 
 class ICUConfig(BaseSettings):
     """Intervals.icu API configuration from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_env_file),
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     intervals_icu_api_key: str = ""
